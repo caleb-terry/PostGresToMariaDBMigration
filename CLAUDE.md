@@ -1,0 +1,1 @@
+- In Docker Compose, the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion

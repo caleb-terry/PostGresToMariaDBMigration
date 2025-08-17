@@ -1,0 +1,62 @@
+[mysqld]
+# Basic Settings
+max_connections = 500
+connect_timeout = 10
+wait_timeout = 600
+max_allowed_packet = 64M
+thread_cache_size = 128
+sort_buffer_size = 4M
+bulk_insert_buffer_size = 16M
+tmp_table_size = 64M
+max_heap_table_size = 64M
+
+# InnoDB Settings for Performance
+innodb_buffer_pool_size = 1G
+innodb_log_file_size = 256M
+innodb_flush_log_at_trx_commit = 2
+innodb_flush_method = O_DIRECT
+innodb_file_per_table = 1
+innodb_open_files = 400
+innodb_io_capacity = 2000
+innodb_stats_on_metadata = 0
+
+# MariaDB Specific Features
+plugin_load_add = ha_connect
+plugin_load_add = ha_spider
+thread_handling = pool-of-threads
+thread_pool_size = 16
+thread_pool_max_threads = 500
+
+# Query Cache (MariaDB still supports this)
+query_cache_type = 1
+query_cache_size = 128M
+query_cache_limit = 2M
+
+# Logging
+general_log = 0
+general_log_file = /var/log/mysql/general.log
+slow_query_log = 1
+slow_query_log_file = /var/log/mysql/slow.log
+long_query_time = 2
+log_queries_not_using_indexes = 1
+
+# Replication Settings
+server-id = 1
+log_bin = /var/log/mysql/mariadb-bin
+log_bin_index = /var/log/mysql/mariadb-bin.index
+expire_logs_days = 10
+max_binlog_size = 100M
+binlog_format = ROW
+
+# Performance Schema
+performance_schema = ON
+
+# Character Set
+character-set-server = utf8mb4
+collation-server = utf8mb4_unicode_ci
+
+[client]
+default-character-set = utf8mb4
+
+[mysql]
+default-character-set = utf8mb4

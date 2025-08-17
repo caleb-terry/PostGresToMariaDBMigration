@@ -1,0 +1,144 @@
+name: postgres2mariadbmigrationtesting
+
+services:
+  postgres:
+    build: ./postgres
+    container_name: postgres-source
+    environment:
+      POSTGRES_DB: migration_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../datasets:/datasets:ro
+    networks:
+      - migration_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mariadb-primary:
+    build: ./mariadb
+    container_name: mariadb-primary
+    environment:
+      MYSQL_ROOT_PASSWORD: mariadb123
+      MYSQL_DATABASE: migration_db
+      MYSQL_USER: mariadb
+      MYSQL_PASSWORD: mariadb123
+      MARIADB_AUTO_UPGRADE: 1
+      MARIADB_INITDB_SKIP_TZINFO: 1
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_primary_data:/var/lib/mysql
+      - ../datasets:/datasets:ro
+      - ./mariadb/mariadb-custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    networks:
+      - migration_network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mariadb-replica1:
+    build: ./mariadb
+    container_name: mariadb-replica1
+    environment:
+      MYSQL_ROOT_PASSWORD: mariadb123
+      MYSQL_DATABASE: migration_db
+      MYSQL_USER: mariadb
+      MYSQL_PASSWORD: mariadb123
+      MARIADB_AUTO_UPGRADE: 1
+      MARIADB_INITDB_SKIP_TZINFO: 1
+    ports:
+      - "3307:3306"
+    volumes:
+      - mariadb_replica1_data:/var/lib/mysql
+      - ./mariadb/mariadb-custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    networks:
+      - migration_network
+    depends_on:
+      - mariadb-primary
+
+  mariadb-replica2:
+    build: ./mariadb
+    container_name: mariadb-replica2
+    environment:
+      MYSQL_ROOT_PASSWORD: mariadb123
+      MYSQL_DATABASE: migration_db
+      MYSQL_USER: mariadb
+      MYSQL_PASSWORD: mariadb123
+      MARIADB_AUTO_UPGRADE: 1
+      MARIADB_INITDB_SKIP_TZINFO: 1
+    ports:
+      - "3308:3306"
+    volumes:
+      - mariadb_replica2_data:/var/lib/mysql
+      - ./mariadb/mariadb-custom.cnf:/etc/mysql/conf.d/custom.cnf:ro
+    networks:
+      - migration_network
+    depends_on:
+      - mariadb-primary
+
+  maxscale:
+    image: mariadb/maxscale:latest
+    container_name: maxscale
+    ports:
+      - "4000:4000" # ReadWrite Split Router
+      - "4001:4001" # ReadOnly Router
+      - "8989:8989" # REST API
+    volumes:
+      - ./mariadb/maxscale.cnf:/etc/maxscale.cnf:ro
+    networks:
+      - migration_network
+    depends_on:
+      - mariadb-primary
+      - mariadb-replica1
+      - mariadb-replica2
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - migration_network
+    depends_on:
+      - postgres
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    environment:
+      PMA_ARBITRARY: 1
+      PMA_HOST: mariadb-primary
+      PMA_USER: root
+      PMA_PASSWORD: mariadb123
+    ports:
+      - "8080:80"
+    networks:
+      - migration_network
+    depends_on:
+      - mariadb-primary
+
+volumes:
+  postgres_data:
+  mariadb_primary_data:
+  mariadb_replica1_data:
+  mariadb_replica2_data:
+  pgadmin_data:
+
+networks:
+  migration_network:
+    driver: bridge
